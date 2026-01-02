@@ -95,7 +95,7 @@ func realMain(args []string) int {
 	case "submit":
 		runErr = runSubmit(ctx, a, pr, args[2:])
 	case "config":
-		runErr = errx.NotImplemented("cmd/vleet config")
+		runErr = runConfig(ctx, cfgStore, pr, args[2:])
 	case "help", "-h", "--help":
 		usage(os.Stdout)
 		return 0
@@ -191,6 +191,101 @@ func runSubmit(ctx context.Context, a *app.App, pr *output.StdPrinter, argv []st
 	})
 }
 
+func runConfig(ctx context.Context, store *config.FileStore, pr *output.StdPrinter, argv []string) error {
+	if len(argv) < 1 {
+		return fmt.Errorf("config: missing subcommand (init|show)")
+	}
+	switch argv[0] {
+	case "init":
+		return runConfigInit(ctx, store, pr, argv[1:])
+	case "show":
+		return runConfigShow(ctx, store, pr, argv[1:])
+	default:
+		return fmt.Errorf("config: unknown subcommand %q (expected init|show)", argv[0])
+	}
+}
+
+func runConfigInit(ctx context.Context, store *config.FileStore, pr *output.StdPrinter, argv []string) error {
+	fs := flag.NewFlagSet("config init", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+
+	var editorCmd string
+	var defaultLang string
+	var force bool
+	fs.StringVar(&editorCmd, "editor", "", "editor command (default: $EDITOR, else vim)")
+	fs.StringVar(&defaultLang, "default-lang", "", "default LeetCode language slug (default: cpp)")
+	fs.BoolVar(&force, "force", false, "overwrite existing config file")
+
+	if err := fs.Parse(argv); err != nil {
+		return err
+	}
+
+	if editorCmd == "" {
+		if env, ok := os.LookupEnv("EDITOR"); ok && env != "" {
+			editorCmd = env
+		} else {
+			editorCmd = "vim"
+		}
+	}
+	if defaultLang == "" {
+		defaultLang = "cpp"
+	}
+
+	if _, err := os.Stat(store.Path); err == nil && !force {
+		return fmt.Errorf("config already exists at %s (use --force to overwrite)", store.Path)
+	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("stat config %s: %w", store.Path, err)
+	}
+
+	cfg := config.Config{
+		Editor:      editorCmd,
+		DefaultLang: defaultLang,
+		LeetCode: config.LeetCodeAuth{
+			Session:   "",
+			CSRFTOKEN: "",
+		},
+	}
+	if err := store.Save(ctx, cfg); err != nil {
+		return err
+	}
+
+	_, _ = fmt.Fprintf(pr.Out, "wrote config: %s\n", store.Path)
+	_, _ = fmt.Fprintln(pr.Out, "note: edit the file to set leetcode.session and leetcode.csrftoken")
+	return nil
+}
+
+func runConfigShow(ctx context.Context, store *config.FileStore, pr *output.StdPrinter, argv []string) error {
+	fs := flag.NewFlagSet("config show", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	if err := fs.Parse(argv); err != nil {
+		return err
+	}
+
+	cfg, err := store.Load(ctx)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("config not found at %s (run: vleet config init)", store.Path)
+		}
+		return err
+	}
+
+	sessionStatus := "(not set)"
+	if cfg.LeetCode.Session != "" {
+		sessionStatus = "(set)"
+	}
+	csrfStatus := "(not set)"
+	if cfg.LeetCode.CSRFTOKEN != "" {
+		csrfStatus = "(set)"
+	}
+
+	_, _ = fmt.Fprintf(pr.Out, "path: %s\n", store.Path)
+	_, _ = fmt.Fprintf(pr.Out, "editor: %s\n", cfg.Editor)
+	_, _ = fmt.Fprintf(pr.Out, "default_lang: %s\n", cfg.DefaultLang)
+	_, _ = fmt.Fprintf(pr.Out, "leetcode.session: %s\n", sessionStatus)
+	_, _ = fmt.Fprintf(pr.Out, "leetcode.csrftoken: %s\n", csrfStatus)
+	return nil
+}
+
 func usage(w io.Writer) {
 	fmt.Fprintln(w, "vleet - Vim + LeetCode in the terminal")
 	fmt.Fprintln(w)
@@ -201,7 +296,7 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w, "  solve   <problem-key> --lang <lang> [--submit]")
 	fmt.Fprintln(w, "  fetch   <problem-key> --lang <lang>")
 	fmt.Fprintln(w, "  submit  <problem-key> --lang <lang> [--file <path>]")
-	fmt.Fprintln(w, "  config  (not implemented)")
+	fmt.Fprintln(w, "  config  init|show")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Notes:")
 	fmt.Fprintln(w, "  - problem-key is the LeetCode titleSlug in MVP (e.g. two-sum)")
