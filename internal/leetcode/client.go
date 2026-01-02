@@ -48,46 +48,46 @@ type SubmissionResult struct {
 	RuntimeError string
 }
 
-// HTTPClient is a LeetCode client backed by net/http.
+// HttpClient is a LeetCode client backed by net/http.
 //
 // Skeleton only: network behavior (GraphQL queries, submit, poll) is not implemented yet.
 // It exists to define the API surface and dependency wiring.
-type HTTPClient struct {
+type HttpClient struct {
 	BaseURL   string
 	UserAgent string
 
-	HTTP *http.Client
+	Http *http.Client
 	Auth config.LeetCodeAuth
 }
 
-type HTTPClientOptions struct {
+type HttpClientOptions struct {
 	BaseURL   string
 	UserAgent string
-	HTTP      *http.Client
+	Http      *http.Client
 	Auth      config.LeetCodeAuth
 }
 
-func NewHttpClient(opts HTTPClientOptions) *HTTPClient {
-	c := &HTTPClient{
+func NewHttpClient(opts HttpClientOptions) *HttpClient {
+	c := &HttpClient{
 		BaseURL:   opts.BaseURL,
 		UserAgent: opts.UserAgent,
-		HTTP:      opts.HTTP,
+		Http:      opts.Http,
 		Auth:      opts.Auth,
 	}
-	if c.HTTP == nil {
-		c.HTTP = http.DefaultClient
+	if c.Http == nil {
+		c.Http = http.DefaultClient
 	}
 	return c
 }
 
-func (c *HTTPClient) FetchQuestion(ctx context.Context, titleSlug string) (Question, error) {
-	return Question{}, errx.NotImplemented("leetcode.HTTPClient.FetchQuestion")
+func (c *HttpClient) FetchQuestion(ctx context.Context, titleSlug string) (Question, error) {
+	return Question{}, errx.NotImplemented("leetcode.HttpClient.FetchQuestion")
 }
 
-func (c *HTTPClient) Submit(ctx context.Context, req SubmitRequest) (SubmissionID, error) {
-	return 0, errx.NotImplemented("leetcode.HTTPClient.Submit")
+func (c *HttpClient) Submit(ctx context.Context, req SubmitRequest) (SubmissionID, error) {
+	return 0, errx.NotImplemented("leetcode.HttpClient.Submit")
 }
 
-func (c *HTTPClient) PollSubmission(ctx context.Context, submissionID SubmissionID, opts PollOptions) (SubmissionResult, error) {
-	return SubmissionResult{}, errx.NotImplemented("leetcode.HTTPClient.PollSubmission")
+func (c *HttpClient) PollSubmission(ctx context.Context, submissionID SubmissionID, opts PollOptions) (SubmissionResult, error) {
+	return SubmissionResult{}, errx.NotImplemented("leetcode.HttpClient.PollSubmission")
 }

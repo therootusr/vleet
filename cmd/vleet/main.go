@@ -66,7 +66,7 @@ func realMain(args []string) int {
 	// NOTE: behaviors are intentionally not implemented yet; the goal is to establish
 	// the top-level module boundaries and their dependencies.
 	cfgStore := config.NewFileStore(cfgPath)
-	lc := leetcode.NewHttpClient(leetcode.HTTPClientOptions{
+	lc := leetcode.NewHttpClient(leetcode.HttpClientOptions{
 		BaseURL:   "https://leetcode.com",
 		UserAgent: "vleet/0 (skeleton)",
 		Auth:      config.LeetCodeAuth{},
