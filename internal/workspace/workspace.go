@@ -87,8 +87,8 @@ func (m *FSManager) CreateWorkspace(ctx context.Context, root string, q leetcode
 
 	// Ensure solution doesn't already exist (v1 policy: never overwrite).
 	if _, err := os.Stat(solutionPath); err == nil {
-		return Workspace{}, fmt.Errorf("solution already exists at %s", solutionPath)
-	} else if err != nil && !errorsIsNotExist(err) {
+		return Workspace{}, fmt.Errorf("solution already exists at %s: %w", solutionPath, os.ErrExist)
+	} else if !errorsIsNotExist(err) {
 		return Workspace{}, fmt.Errorf("stat solution %s: %w", solutionPath, err)
 	}
 
@@ -182,7 +182,7 @@ func (m *FSManager) WriteSolution(ctx context.Context, ws Workspace, content str
 	f, err := os.OpenFile(ws.SolutionPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if err != nil {
 		if errorsIsExist(err) {
-			return fmt.Errorf("solution already exists at %s", ws.SolutionPath)
+			return fmt.Errorf("solution already exists at %s: %w", ws.SolutionPath, os.ErrExist)
 		}
 		return fmt.Errorf("create solution %s: %w", ws.SolutionPath, err)
 	}
