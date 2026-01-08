@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"vleet/internal/app"
 	"vleet/internal/config"
@@ -16,6 +17,12 @@ import (
 	"vleet/internal/output"
 	"vleet/internal/render"
 	"vleet/internal/workspace"
+)
+
+const (
+	kEnvVleetBaseURL        = "VLEET_BASE_URL"
+	kEnvVleetConfigPath     = "VLEET_CONFIG_PATH"
+	kDefaultLeetCodeBaseURL = "https://leetcode.com"
 )
 
 func main() {
@@ -55,20 +62,26 @@ func realMain(args []string) int {
 
 	ctx := context.Background()
 
-	cfgPath, err := config.DefaultConfigPath()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: resolve config path: %v\n", err)
-		return 1
+	cfgPath := strings.TrimSpace(os.Getenv(kEnvVleetConfigPath))
+	if cfgPath == "" {
+		var err error
+		cfgPath, err = config.DefaultConfigPath()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: resolve config path: %v\n", err)
+			return 1
+		}
 	}
 
-	// Dependency wiring (skeleton).
-	//
-	// NOTE: behaviors are intentionally not implemented yet; the goal is to establish
-	// the top-level module boundaries and their dependencies.
 	cfgStore := config.NewFileStore(cfgPath)
+
+	baseURL := os.Getenv(kEnvVleetBaseURL)
+	if baseURL == "" {
+		baseURL = kDefaultLeetCodeBaseURL
+	}
+
 	lc := leetcode.NewHttpClient(leetcode.HttpClientOptions{
-		BaseURL:   "https://leetcode.com",
-		UserAgent: "vleet/0 (skeleton)",
+		BaseURL:   baseURL,
+		UserAgent: "vleet/0.1.0",
 		Auth:      config.LeetCodeAuth{},
 	})
 	ws := workspace.NewFSManager()
@@ -292,7 +305,7 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w, "Usage:")
 	fmt.Fprintln(w, "  vleet <command> [args]")
 	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Commands (skeleton):")
+	fmt.Fprintln(w, "Commands:")
 	fmt.Fprintln(w, "  solve   <problem-key> --lang <lang> [--submit]")
 	fmt.Fprintln(w, "  fetch   <problem-key> --lang <lang>")
 	fmt.Fprintln(w, "  submit  <problem-key> --lang <lang> [--file <path>]")
