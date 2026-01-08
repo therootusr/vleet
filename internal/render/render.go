@@ -89,6 +89,11 @@ func prefixLines(prefix string, body string) string {
 	lines := strings.Split(body, "\n")
 	var b strings.Builder
 	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			b.WriteString(strings.TrimSpace(prefix))
+			b.WriteString("\n")
+			continue
+		}
 		b.WriteString(prefix)
 		b.WriteString(line)
 		b.WriteString("\n")
