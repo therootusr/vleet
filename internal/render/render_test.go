@@ -48,7 +48,7 @@ func TestHTMLRenderer_RenderHeader_Sanity_CPP(t *testing.T) {
 	// HTML -> plain text conversion sanity.
 	assertNotContains(t, out, "<p>")
 	assertNotContains(t, out, "&nbsp;")
-	assertContains(t, out, "// Given nums and target & return indices.")
+	assertContains(t, out, "// Given `nums` and target & return indices.")
 	assertContains(t, out, "// - One")
 	assertContains(t, out, "// - Two")
 	assertContains(t, out, "// Input:")

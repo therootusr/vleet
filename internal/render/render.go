@@ -130,10 +130,16 @@ func formatHints(hints []string) string {
 
 var (
 	reBR          = regexp.MustCompile(`(?i)<br\s*/?>`)
+	reCodeOpen    = regexp.MustCompile(`(?i)<code[^>]*>`)
+	reCodeClose   = regexp.MustCompile(`(?i)</code>`)
 	rePreOpen     = regexp.MustCompile(`(?i)<pre[^>]*>`)
 	rePreClose    = regexp.MustCompile(`(?i)</pre>`)
 	reLiOpen      = regexp.MustCompile(`(?i)<li[^>]*>`)
 	reLiClose     = regexp.MustCompile(`(?i)</li>`)
+	reSupOpen     = regexp.MustCompile(`(?i)<sup[^>]*>`)
+	reSupClose    = regexp.MustCompile(`(?i)</sup>`)
+	reSubOpen     = regexp.MustCompile(`(?i)<sub[^>]*>`)
+	reSubClose    = regexp.MustCompile(`(?i)</sub>`)
 	reBlockClose  = regexp.MustCompile(`(?i)</(p|div|section|h[1-6]|ul|ol|table|tr|blockquote)>`)
 	reStripTags   = regexp.MustCompile(`(?s)<[^>]*>`)
 	reManyNewline = regexp.MustCompile(`\n{3,}`)
@@ -151,6 +157,14 @@ func htmlToPlainText(s string) string {
 
 	// Preserve basic structure by translating common tags to newlines/bullets.
 	s = reBR.ReplaceAllString(s, "\n")
+	// Preserve inline code styling with backticks (plain text friendly).
+	s = reCodeOpen.ReplaceAllString(s, "`")
+	s = reCodeClose.ReplaceAllString(s, "`")
+	// Preserve common math formatting for exponents/indices.
+	s = reSupOpen.ReplaceAllString(s, "^")
+	s = reSupClose.ReplaceAllString(s, "")
+	s = reSubOpen.ReplaceAllString(s, "_")
+	s = reSubClose.ReplaceAllString(s, "")
 	s = rePreOpen.ReplaceAllString(s, "\n\n")
 	s = rePreClose.ReplaceAllString(s, "\n\n")
 	s = reLiOpen.ReplaceAllString(s, "\n- ")
