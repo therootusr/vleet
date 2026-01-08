@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"vleet/internal/config"
-	"vleet/internal/errx"
 )
 
 const (
@@ -20,7 +19,10 @@ const (
 
 	kHeaderAccept      = "Accept"
 	kHeaderContentType = "Content-Type"
+	kHeaderOrigin      = "Origin"
+	kHeaderReferer     = "Referer"
 	kHeaderUserAgent   = "User-Agent"
+	kHeaderXCSRFTOKEN  = "x-csrftoken"
 
 	kContentTypeApplicationJSON = "application/json"
 	kContentTypeTextHTML        = "text/html"
@@ -29,6 +31,14 @@ const (
 	kCookieCSRFTOKEN       = "csrftoken"
 
 	kMaxErrorBodyBytes = 8 << 10
+
+	kProblemPathFormat          = "/problems/%s/"
+	kSubmitPathFormat           = "/problems/%s/submit/"
+	kSubmissionDetailPathFormat = "/submissions/detail/%d/"
+	kSubmissionCheckPathFormat  = "/submissions/detail/%d/check/"
+	kDefaultPollInitialInterval = 1 * time.Second
+	kDefaultPollMaxInterval     = 5 * time.Second
+	kDefaultPollTimeout         = 2 * time.Minute
 )
 
 const kQuestionDataQuery = `
@@ -253,9 +263,283 @@ func (c *HttpClient) FetchQuestion(ctx context.Context, titleSlug string) (Quest
 }
 
 func (c *HttpClient) Submit(ctx context.Context, req SubmitRequest) (SubmissionID, error) {
-	return 0, errx.NotImplemented("leetcode.HttpClient.Submit")
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+
+	titleSlug := strings.TrimSpace(req.TitleSlug)
+	if titleSlug == "" {
+		return 0, fmt.Errorf("titleSlug is required")
+	}
+	questionID := strings.TrimSpace(req.QuestionID)
+	if questionID == "" {
+		return 0, fmt.Errorf("questionID is required")
+	}
+	lang := strings.TrimSpace(req.Lang)
+	if lang == "" {
+		return 0, fmt.Errorf("lang is required")
+	}
+	if strings.TrimSpace(req.TypedCode) == "" {
+		return 0, fmt.Errorf("typed_code is required")
+	}
+	if strings.TrimSpace(c.Auth.Session) == "" {
+		return 0, fmt.Errorf("leetcode session cookie is required")
+	}
+
+	base := normalizedBaseURL(c.BaseURL)
+	endpoint := base + fmt.Sprintf(kSubmitPathFormat, titleSlug)
+	referer := base + fmt.Sprintf(kProblemPathFormat, titleSlug)
+
+	payload := map[string]any{
+		"lang":        lang,
+		"question_id": questionID,
+		"typed_code":  req.TypedCode,
+	}
+	b, err := json.Marshal(payload)
+	if err != nil {
+		return 0, fmt.Errorf("encode submit payload: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(b))
+	if err != nil {
+		return 0, fmt.Errorf("create submit request: %w", err)
+	}
+	httpReq.Header.Set(kHeaderContentType, kContentTypeApplicationJSON)
+	httpReq.Header.Set(kHeaderAccept, kContentTypeApplicationJSON)
+	httpReq.Header.Set(kHeaderReferer, referer)
+	httpReq.Header.Set(kHeaderOrigin, base)
+	if c.UserAgent != "" {
+		httpReq.Header.Set(kHeaderUserAgent, c.UserAgent)
+	}
+	if c.Auth.CSRFTOKEN != "" {
+		httpReq.Header.Set(kHeaderXCSRFTOKEN, c.Auth.CSRFTOKEN)
+	}
+
+	// Attach cookies. These are secrets; never log them.
+	httpReq.AddCookie(&http.Cookie{Name: kCookieLeetCodeSession, Value: c.Auth.Session})
+	if c.Auth.CSRFTOKEN != "" {
+		httpReq.AddCookie(&http.Cookie{Name: kCookieCSRFTOKEN, Value: c.Auth.CSRFTOKEN})
+	}
+
+	resp, err := c.Http.Do(httpReq)
+	if err != nil {
+		return 0, fmt.Errorf("leetcode submit request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	contentType := resp.Header.Get(kHeaderContentType)
+	if strings.Contains(strings.ToLower(contentType), kContentTypeTextHTML) {
+		return 0, fmt.Errorf(
+			"leetcode submit: unexpected html response (status %d); leetcode may be blocking requests",
+			resp.StatusCode,
+		)
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		snippet, _ := io.ReadAll(io.LimitReader(resp.Body, kMaxErrorBodyBytes))
+		msg := strings.TrimSpace(string(snippet))
+		if msg == "" {
+			msg = resp.Status
+		}
+		return 0, fmt.Errorf("leetcode submit: status %d: %s", resp.StatusCode, msg)
+	}
+
+	dec := json.NewDecoder(io.LimitReader(resp.Body, 1<<20))
+	dec.UseNumber()
+	var m map[string]any
+	if err := dec.Decode(&m); err != nil {
+		return 0, fmt.Errorf("decode leetcode submit response: %w", err)
+	}
+
+	if errMsg := extractString(m, "error"); errMsg != "" {
+		return 0, fmt.Errorf("leetcode submit: %s", errMsg)
+	}
+
+	sid, ok := extractInt64(m, "submission_id")
+	if !ok || sid <= 0 {
+		// Include a tiny hint if present.
+		if msg := extractString(m, "message"); msg != "" {
+			return 0, fmt.Errorf("leetcode submit: %s", msg)
+		}
+		return 0, fmt.Errorf("leetcode submit: missing submission_id")
+	}
+	return SubmissionID(sid), nil
 }
 
 func (c *HttpClient) PollSubmission(ctx context.Context, submissionID SubmissionID, opts PollOptions) (SubmissionResult, error) {
-	return SubmissionResult{}, errx.NotImplemented("leetcode.HttpClient.PollSubmission")
+	if err := ctx.Err(); err != nil {
+		return SubmissionResult{}, err
+	}
+	if submissionID <= 0 {
+		return SubmissionResult{}, fmt.Errorf("submissionID is required")
+	}
+	if strings.TrimSpace(c.Auth.Session) == "" {
+		return SubmissionResult{}, fmt.Errorf("leetcode session cookie is required")
+	}
+
+	base := normalizedBaseURL(c.BaseURL)
+	endpoint := base + fmt.Sprintf(kSubmissionCheckPathFormat, submissionID)
+	referer := base + fmt.Sprintf(kSubmissionDetailPathFormat, submissionID)
+
+	initial := opts.InitialInterval
+	if initial <= 0 {
+		initial = kDefaultPollInitialInterval
+	}
+	maxInterval := opts.MaxInterval
+	if maxInterval <= 0 {
+		maxInterval = kDefaultPollMaxInterval
+	}
+	if maxInterval < initial {
+		maxInterval = initial
+	}
+	timeout := opts.Timeout
+	if timeout <= 0 {
+		timeout = kDefaultPollTimeout
+	}
+
+	pollCtx := ctx
+	var cancel context.CancelFunc
+	if timeout > 0 {
+		pollCtx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+
+	interval := initial
+	for {
+		if err := pollCtx.Err(); err != nil {
+			return SubmissionResult{}, err
+		}
+
+		httpReq, err := http.NewRequestWithContext(pollCtx, http.MethodGet, endpoint, nil)
+		if err != nil {
+			return SubmissionResult{}, fmt.Errorf("create submission check request: %w", err)
+		}
+		httpReq.Header.Set(kHeaderAccept, kContentTypeApplicationJSON)
+		httpReq.Header.Set(kHeaderReferer, referer)
+		if c.UserAgent != "" {
+			httpReq.Header.Set(kHeaderUserAgent, c.UserAgent)
+		}
+		if c.Auth.CSRFTOKEN != "" {
+			httpReq.Header.Set(kHeaderXCSRFTOKEN, c.Auth.CSRFTOKEN)
+		}
+		httpReq.AddCookie(&http.Cookie{Name: kCookieLeetCodeSession, Value: c.Auth.Session})
+		if c.Auth.CSRFTOKEN != "" {
+			httpReq.AddCookie(&http.Cookie{Name: kCookieCSRFTOKEN, Value: c.Auth.CSRFTOKEN})
+		}
+
+		resp, err := c.Http.Do(httpReq)
+		if err != nil {
+			return SubmissionResult{}, fmt.Errorf("leetcode submission check request failed: %w", err)
+		}
+		contentType := resp.Header.Get(kHeaderContentType)
+		if strings.Contains(strings.ToLower(contentType), kContentTypeTextHTML) {
+			resp.Body.Close()
+			return SubmissionResult{}, fmt.Errorf(
+				"leetcode submission check: unexpected html response (status %d); leetcode may be blocking requests",
+				resp.StatusCode,
+			)
+		}
+		if resp.StatusCode != http.StatusOK {
+			snippet, _ := io.ReadAll(io.LimitReader(resp.Body, kMaxErrorBodyBytes))
+			resp.Body.Close()
+			msg := strings.TrimSpace(string(snippet))
+			if msg == "" {
+				msg = resp.Status
+			}
+			return SubmissionResult{}, fmt.Errorf("leetcode submission check: status %d: %s", resp.StatusCode, msg)
+		}
+
+		dec := json.NewDecoder(io.LimitReader(resp.Body, 2<<20))
+		dec.UseNumber()
+		var m map[string]any
+		err = dec.Decode(&m)
+		resp.Body.Close()
+		if err != nil {
+			return SubmissionResult{}, fmt.Errorf("decode leetcode submission check response: %w", err)
+		}
+
+		state := extractString(m, "state")
+		status := extractString(m, "status_msg")
+		runtime := extractString(m, "runtime")
+		memory := extractString(m, "memory")
+		compileErr := extractString(m, "compile_error")
+		runtimeErr := extractString(m, "runtime_error")
+
+		// Terminal states are typically SUCCESS (and sometimes FAILURE).
+		if state == "SUCCESS" || state == "FAILURE" {
+			return SubmissionResult{
+				State:        state,
+				Status:       status,
+				Runtime:      runtime,
+				Memory:       memory,
+				CompileError: compileErr,
+				RuntimeError: runtimeErr,
+			}, nil
+		}
+
+		// If state is missing, avoid looping forever on an unexpected payload.
+		if strings.TrimSpace(state) == "" {
+			return SubmissionResult{}, fmt.Errorf("leetcode submission check: missing state")
+		}
+
+		// Sleep with backoff, respecting cancellation.
+		timer := time.NewTimer(interval)
+		select {
+		case <-pollCtx.Done():
+			timer.Stop()
+			return SubmissionResult{}, pollCtx.Err()
+		case <-timer.C:
+		}
+
+		interval *= 2
+		if interval > maxInterval {
+			interval = maxInterval
+		}
+	}
+}
+
+func normalizedBaseURL(baseURL string) string {
+	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if base == "" {
+		return kDefaultBaseURL
+	}
+	return base
+}
+
+func extractString(m map[string]any, key string) string {
+	v, ok := m[key]
+	if !ok || v == nil {
+		return ""
+	}
+	switch t := v.(type) {
+	case string:
+		return strings.TrimSpace(t)
+	case json.Number:
+		return t.String()
+	default:
+		return strings.TrimSpace(fmt.Sprintf("%v", t))
+	}
+}
+
+func extractInt64(m map[string]any, key string) (int64, bool) {
+	v, ok := m[key]
+	if !ok || v == nil {
+		return 0, false
+	}
+	switch t := v.(type) {
+	case json.Number:
+		n, err := t.Int64()
+		return n, err == nil
+	case float64:
+		return int64(t), true
+	case int64:
+		return t, true
+	case int:
+		return int64(t), true
+	case string:
+		n, err := json.Number(strings.TrimSpace(t)).Int64()
+		return n, err == nil
+	default:
+		return 0, false
+	}
 }

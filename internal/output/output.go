@@ -41,8 +41,52 @@ func (p *StdPrinter) PrintSubmissionResult(ctx context.Context, r leetcode.Submi
 	if p.JSON {
 		return json.NewEncoder(p.Out).Encode(r)
 	}
-	_, err := fmt.Fprintf(p.Out, "%s\n", r.Status)
-	return err
+
+	if r.Status != "" {
+		if _, err := fmt.Fprintf(p.Out, "Verdict: %s\n", r.Status); err != nil {
+			return err
+		}
+	} else if r.State != "" {
+		if _, err := fmt.Fprintf(p.Out, "State: %s\n", r.State); err != nil {
+			return err
+		}
+	}
+
+	if r.Runtime != "" {
+		if _, err := fmt.Fprintf(p.Out, "Runtime: %s\n", r.Runtime); err != nil {
+			return err
+		}
+	}
+	if r.Memory != "" {
+		if _, err := fmt.Fprintf(p.Out, "Memory: %s\n", r.Memory); err != nil {
+			return err
+		}
+	}
+
+	if r.CompileError != "" {
+		if _, err := fmt.Fprintln(p.Out); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintln(p.Out, "Compile Error:"); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintln(p.Out, r.CompileError); err != nil {
+			return err
+		}
+	}
+	if r.RuntimeError != "" {
+		if _, err := fmt.Fprintln(p.Out); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintln(p.Out, "Runtime Error:"); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintln(p.Out, r.RuntimeError); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (p *StdPrinter) PrintError(ctx context.Context, err error) error {

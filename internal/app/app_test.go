@@ -68,6 +68,10 @@ type fakeWorkspaceManager struct {
 
 	loadCalled bool
 	loadErr    error
+
+	readCalled   bool
+	readSolution string
+	readErr      error
 }
 
 func (m *fakeWorkspaceManager) CreateWorkspace(ctx context.Context, root string, q leetcode.Question, lang string, opts workspace.CreateOptions) (workspace.Workspace, error) {
@@ -90,7 +94,11 @@ func (m *fakeWorkspaceManager) LoadWorkspace(ctx context.Context, dir string, pr
 }
 
 func (m *fakeWorkspaceManager) ReadSolution(ctx context.Context, ws workspace.Workspace) (string, error) {
-	return "", errors.New("not needed in tests")
+	m.readCalled = true
+	if m.readErr != nil {
+		return "", m.readErr
+	}
+	return m.readSolution, nil
 }
 
 func (m *fakeWorkspaceManager) WriteSolution(ctx context.Context, ws workspace.Workspace, content string) error {

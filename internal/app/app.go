@@ -9,7 +9,6 @@ import (
 
 	"vleet/internal/config"
 	"vleet/internal/editor"
-	"vleet/internal/errx"
 	"vleet/internal/leetcode"
 	"vleet/internal/output"
 	"vleet/internal/render"
@@ -90,7 +89,11 @@ func (a *App) Solve(ctx context.Context, opts SolveOptions) error {
 	}
 
 	if opts.Submit {
-		return errx.NotImplemented("app.App.Solve --submit")
+		return a.Submit(ctx, SubmitOptions{
+			ProblemKey: opts.ProblemKey,
+			Lang:       prep.Lang,
+			File:       "",
+		})
 	}
 	return nil
 }
@@ -132,7 +135,80 @@ func (a *App) Fetch(ctx context.Context, opts FetchOptions) error {
 //
 // Skeleton only: not implemented yet.
 func (a *App) Submit(ctx context.Context, opts SubmitOptions) error {
-	return errx.NotImplemented("app.App.Submit")
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if strings.TrimSpace(opts.ProblemKey) == "" {
+		return fmt.Errorf("problem key (titleSlug) is required")
+	}
+	if a.LeetCode == nil {
+		return fmt.Errorf("leetcode client is not configured")
+	}
+	if a.Workspace == nil {
+		return fmt.Errorf("workspace manager is not configured")
+	}
+
+	cfg, err := a.loadConfigRequired(ctx)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(cfg.LeetCode.Session) == "" {
+		return fmt.Errorf("leetcode.session is not set in config (run: vleet config init, then edit the config file)")
+	}
+
+	lang := strings.TrimSpace(opts.Lang)
+	if lang == "" {
+		lang = strings.TrimSpace(cfg.DefaultLang)
+	}
+	if lang == "" {
+		lang = kDefaultLang
+	}
+
+	// If we're using the built-in HTTP client, inject auth for submit/poll.
+	if hc, ok := a.LeetCode.(*leetcode.HttpClient); ok {
+		hc.Auth = cfg.LeetCode
+	}
+
+	ws, err := a.Workspace.LoadWorkspace(ctx, ".", opts.ProblemKey, lang, opts.File)
+	if err != nil {
+		return err
+	}
+
+	code, err := a.Workspace.ReadSolution(ctx, ws)
+	if err != nil {
+		return err
+	}
+
+	q, err := a.LeetCode.FetchQuestion(ctx, opts.ProblemKey)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(q.QuestionID) == "" {
+		return fmt.Errorf("missing question_id for problem %s", opts.ProblemKey)
+	}
+
+	submissionID, err := a.LeetCode.Submit(ctx, leetcode.SubmitRequest{
+		TitleSlug:  opts.ProblemKey,
+		QuestionID: q.QuestionID,
+		Lang:       lang,
+		TypedCode:  code,
+	})
+	if err != nil {
+		return err
+	}
+
+	result, err := a.LeetCode.PollSubmission(ctx, submissionID, leetcode.PollOptions{})
+	if err != nil {
+		return err
+	}
+
+	if a.Output != nil {
+		if err := a.Output.PrintSubmissionResult(ctx, result); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 type preparedSolution struct {
@@ -237,6 +313,24 @@ func (a *App) loadConfigOrDefault(ctx context.Context) (config.Config, error) {
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return config.Config{}, nil
+		}
+		return config.Config{}, err
+	}
+	return cfg, nil
+}
+
+func (a *App) loadConfigRequired(ctx context.Context) (config.Config, error) {
+	if a.ConfigStore == nil {
+		return config.Config{}, fmt.Errorf("config store is not configured")
+	}
+
+	cfg, err := a.ConfigStore.Load(ctx)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			if fs, ok := a.ConfigStore.(*config.FileStore); ok && strings.TrimSpace(fs.Path) != "" {
+				return config.Config{}, fmt.Errorf("config not found at %s (run: vleet config init)", fs.Path)
+			}
+			return config.Config{}, fmt.Errorf("config not found (run: vleet config init)")
 		}
 		return config.Config{}, err
 	}
