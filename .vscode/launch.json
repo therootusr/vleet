@@ -1,0 +1,50 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug vleet (no args)",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/cmd/vleet",
+      "env": {},
+      "args": [],
+      "showLog": false,
+      "trace": "log"
+    },
+    {
+      "name": "Debug vleet fetch",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/cmd/vleet",
+      "env": {},
+      "args": [
+        "fetch",
+        "two-sum",
+        "--lang",
+        "cpp"
+      ],
+      "cwd": "${workspaceFolder}/builds",
+      "showLog": false,
+      "trace": "log"
+    },
+    {
+      "name": "Debug vleet submit",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/cmd/vleet",
+      "env": {},
+      "args": [
+        "submit",
+        "two-sum",
+        "--lang",
+        "cpp"
+      ],
+      "cwd": "${workspaceFolder}/builds",
+      "showLog": false,
+      "trace": "log"
+    }
+  ]
+}
