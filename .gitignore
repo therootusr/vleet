@@ -1,3 +1,6 @@
 *.swp
 /build
 /builds
+
+*.gocache
+*.gomodcache
