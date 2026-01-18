@@ -5,23 +5,19 @@
 // These tests contact the real LeetCode server and compare normalized responses
 // against committed snapshots under:
 //
-//	internal/leetcode/testdata/leetcode/*.json
+//	testdata/leetcode/*.json
 //
 // They are excluded from the default test run. To run them explicitly:
 //
-//	go test -tags=live ./internal/leetcode -run TestLiveSnapshot_QuestionData -count=1
+//	go test -tags=live ./... -run TestLiveSnapshot_QuestionData -count=1
 //
 // To (re)generate snapshots from the current live output:
 //
-//	VLEET_UPDATE_SNAPSHOTS=1 go test -tags=live ./internal/leetcode -run TestLiveSnapshot_QuestionData -count=1
+//	GO_LEETCODE_UPDATE_SNAPSHOTS=1 go test -tags=live ./... -run TestLiveSnapshot_QuestionData -count=1
 //
 // Optional:
 //   - Override the live base URL (useful for regional endpoints):
-//     VLEET_LIVE_BASE_URL=https://leetcode.com ...
-//
-// Notes:
-// - Requires network access.
-// - Snapshots may change when LeetCode updates problem statements/snippets; update intentionally.
+//     GO_LEETCODE_LIVE_BASE_URL=https://leetcode.com ...
 package leetcode
 
 import (
@@ -38,8 +34,8 @@ import (
 )
 
 const (
-	kEnvUpdateLiveSnapshots = "VLEET_UPDATE_SNAPSHOTS"
-	kEnvLiveBaseURL         = "VLEET_LIVE_BASE_URL"
+	kEnvUpdateLiveSnapshots = "GO_LEETCODE_UPDATE_SNAPSHOTS"
+	kEnvLiveBaseURL         = "GO_LEETCODE_LIVE_BASE_URL"
 
 	kLiveSnapshotDir = "testdata/leetcode"
 
@@ -68,14 +64,6 @@ type liveQuestionSnapshot struct {
 }
 
 func TestLiveSnapshot_QuestionData(t *testing.T) {
-	// Live snapshot tests compare real LeetCode responses to committed snapshots to
-	// detect upstream drift. Run explicitly:
-	//
-	//   VLEET_UPDATE_SNAPSHOTS=1 go test -tags=live ./internal/leetcode -run TestLiveSnapshot_QuestionData -count=1
-	//   go test -tags=live ./internal/leetcode -run TestLiveSnapshot_QuestionData -count=1
-	//
-	// These tests require network access.
-
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
@@ -89,7 +77,7 @@ func TestLiveSnapshot_QuestionData(t *testing.T) {
 	}
 	lc := NewHttpClient(HttpClientOptions{
 		BaseURL:   baseURL,
-		UserAgent: "Mozilla/5.0 (vleet live snapshot test)",
+		UserAgent: "Mozilla/5.0 (go-leetcode live snapshot test)",
 		Http:      httpClient,
 	})
 
@@ -128,7 +116,7 @@ func TestLiveSnapshot_QuestionData(t *testing.T) {
 			gotJSON, _ := json.MarshalIndent(got, "", "  ")
 			if string(wantJSON) != string(gotJSON) {
 				t.Fatalf(
-					"snapshot mismatch for %s\n\nTo update snapshots:\n  %s=1 go test -tags=live ./internal/leetcode -run TestLiveSnapshot_QuestionData -count=1\n",
+					"snapshot mismatch for %s\n\nTo update snapshots:\n  %s=1 go test -tags=live ./... -run TestLiveSnapshot_QuestionData -count=1\n",
 					slug,
 					kEnvUpdateLiveSnapshots,
 				)
@@ -161,7 +149,7 @@ func buildLiveSnapshot(q Question) liveQuestionSnapshot {
 		return s.TopicTags[i].Slug < s.TopicTags[j].Slug
 	})
 
-	// Filter and normalize code snippets to languages v1 supports.
+	// Filter and normalize code snippets to languages we intentionally snapshot.
 	for _, cs := range q.CodeSnippets {
 		if !isSnapshotLang(strings.TrimSpace(cs.LangSlug)) {
 			continue

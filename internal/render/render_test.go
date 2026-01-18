@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"vleet/internal/leetcode"
+	"github.com/therootusr/go-leetcode"
 )
 
 func TestHTMLRenderer_RenderHeader_Sanity_CPP(t *testing.T) {

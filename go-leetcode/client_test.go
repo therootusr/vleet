@@ -99,3 +99,4 @@ func TestHttpClient_FetchQuestion_Sanity(t *testing.T) {
 		t.Fatalf("topicTags = %+v, want one array tag", got.TopicTags)
 	}
 }
+

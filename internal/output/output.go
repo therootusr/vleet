@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"vleet/internal/leetcode"
+	"github.com/therootusr/go-leetcode"
 )
 
 // Printer renders user-facing output (human and/or JSON).

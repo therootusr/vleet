@@ -9,8 +9,6 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"vleet/internal/config"
 )
 
 func TestHttpClient_FetchQuestion_RejectsHTMLResponse(t *testing.T) {
@@ -50,9 +48,9 @@ func TestHttpClient_Submit_RejectsHTMLResponse(t *testing.T) {
 	lc := NewHttpClient(HttpClientOptions{
 		BaseURL: ts.URL,
 		Http:    ts.Client(),
-		Auth: config.LeetCodeAuth{
+		Auth: Auth{
 			Session:   "sess",
-			CSRFTOKEN: "csrf",
+			CsrfToken: "csrf",
 		},
 	})
 
@@ -87,9 +85,9 @@ func TestHttpClient_Submit_Non2xx_ReturnsError(t *testing.T) {
 	lc := NewHttpClient(HttpClientOptions{
 		BaseURL: ts.URL,
 		Http:    ts.Client(),
-		Auth: config.LeetCodeAuth{
+		Auth: Auth{
 			Session:   "sess",
-			CSRFTOKEN: "csrf",
+			CsrfToken: "csrf",
 		},
 	})
 
@@ -129,9 +127,9 @@ func TestHttpClient_PollSubmission_LoopsUntilSuccess(t *testing.T) {
 	lc := NewHttpClient(HttpClientOptions{
 		BaseURL: ts.URL,
 		Http:    ts.Client(),
-		Auth: config.LeetCodeAuth{
+		Auth: Auth{
 			Session:   "sess",
-			CSRFTOKEN: "csrf",
+			CsrfToken: "csrf",
 		},
 	})
 
@@ -167,9 +165,9 @@ func TestHttpClient_PollSubmission_TimesOut(t *testing.T) {
 	lc := NewHttpClient(HttpClientOptions{
 		BaseURL: ts.URL,
 		Http:    ts.Client(),
-		Auth: config.LeetCodeAuth{
+		Auth: Auth{
 			Session:   "sess",
-			CSRFTOKEN: "csrf",
+			CsrfToken: "csrf",
 		},
 	})
 
@@ -185,3 +183,4 @@ func TestHttpClient_PollSubmission_TimesOut(t *testing.T) {
 		t.Fatalf("error = %v, want context deadline exceeded", err)
 	}
 }
+

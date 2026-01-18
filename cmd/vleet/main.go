@@ -9,11 +9,11 @@ import (
 	"os"
 	"strings"
 
+	"github.com/therootusr/go-leetcode"
 	"vleet/internal/app"
 	"vleet/internal/config"
 	"vleet/internal/editor"
 	"vleet/internal/errx"
-	"vleet/internal/leetcode"
 	"vleet/internal/output"
 	"vleet/internal/render"
 	"vleet/internal/workspace"
@@ -82,7 +82,7 @@ func realMain(args []string) int {
 	lc := leetcode.NewHttpClient(leetcode.HttpClientOptions{
 		BaseURL:   baseURL,
 		UserAgent: "vleet/0.1.0",
-		Auth:      config.LeetCodeAuth{},
+		Auth:      leetcode.Auth{},
 	})
 	ws := workspace.NewFSManager()
 	rend := render.NewHTMLRenderer()

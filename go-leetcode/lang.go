@@ -3,7 +3,7 @@ package leetcode
 import "fmt"
 
 // LangSlug is the LeetCode language language slug (e.g. "cpp", "python3", "golang").
-// Per docs/design.md, vleet should treat this as the primary language identifier.
+// Consumers should treat this as the primary language identifier.
 type LangSlug string
 
 const (
@@ -14,7 +14,7 @@ const (
 	TypeScript LangSlug = "typescript"
 )
 
-// Info describes a language in terms vleet needs for workspace generation.
+// Info describes a language in terms typical LeetCode tooling needs for workspace generation.
 type Info struct {
 	LangSlug      LangSlug
 	FileExtension string // includes the leading dot (e.g. ".cpp")
@@ -28,7 +28,7 @@ var infos = map[LangSlug]Info{
 	TypeScript: {LangSlug: TypeScript, FileExtension: ".ts"},
 }
 
-// Parse returns Info for a LeetCode language slug.
+// ParseLangSlug returns Info for a LeetCode language slug.
 func ParseLangSlug(langSlug string) (Info, error) {
 	if langSlug == "" {
 		return Info{}, fmt.Errorf("language slug is required")
@@ -39,3 +39,4 @@ func ParseLangSlug(langSlug string) (Info, error) {
 	}
 	return info, nil
 }
+

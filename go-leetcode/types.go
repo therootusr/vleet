@@ -1,7 +1,7 @@
 package leetcode
 
-// Question mirrors the key fields vleet needs from the LeetCode GraphQL questionData query.
-// See docs/design.md ("Fields we need") and docs/architecture.md ("Question contains").
+// Question mirrors the key fields this library needs from the LeetCode GraphQL
+// questionData query.
 type Question struct {
 	// QuestionID is LeetCode's internal numeric ID (often returned as a string in GraphQL).
 	QuestionID string
@@ -42,3 +42,4 @@ type CodeSnippet struct {
 	// Code is the starter snippet (verbatim).
 	Code string
 }
+

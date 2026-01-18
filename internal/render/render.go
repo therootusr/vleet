@@ -8,7 +8,7 @@ import (
 	"strings"
 	"unicode"
 
-	"vleet/internal/leetcode"
+	"github.com/therootusr/go-leetcode"
 )
 
 // Renderer converts LeetCode content (HTML) into a comment-friendly header block.

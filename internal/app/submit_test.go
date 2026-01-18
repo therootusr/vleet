@@ -8,8 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/therootusr/go-leetcode"
 	"vleet/internal/config"
-	"vleet/internal/leetcode"
 	"vleet/internal/output"
 	"vleet/internal/workspace"
 )

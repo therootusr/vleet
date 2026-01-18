@@ -7,9 +7,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/therootusr/go-leetcode"
 	"vleet/internal/config"
 	"vleet/internal/editor"
-	"vleet/internal/leetcode"
 	"vleet/internal/output"
 	"vleet/internal/render"
 	"vleet/internal/workspace"
@@ -166,7 +166,10 @@ func (a *App) Submit(ctx context.Context, opts SubmitOptions) error {
 
 	// If we're using the built-in HTTP client, inject auth for submit/poll.
 	if hc, ok := a.LeetCode.(*leetcode.HttpClient); ok {
-		hc.Auth = cfg.LeetCode
+		hc.Auth = leetcode.Auth{
+			Session:   cfg.LeetCode.Session,
+			CsrfToken: cfg.LeetCode.CSRFTOKEN,
+		}
 	}
 
 	ws, err := a.Workspace.LoadWorkspace(ctx, ".", opts.ProblemKey, lang, opts.File)

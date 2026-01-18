@@ -6,8 +6,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/therootusr/go-leetcode"
 	"vleet/internal/config"
-	"vleet/internal/leetcode"
 	"vleet/internal/workspace"
 )
 

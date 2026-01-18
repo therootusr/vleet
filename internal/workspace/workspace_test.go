@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"vleet/internal/leetcode"
+	"github.com/therootusr/go-leetcode"
 )
 
 func TestFSManager_CreateWriteRead_Sanity(t *testing.T) {

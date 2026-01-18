@@ -9,8 +9,6 @@ import (
 	"net/http"
 	"strings"
 	"time"
-
-	"vleet/internal/config"
 )
 
 const (
@@ -59,7 +57,7 @@ query questionData($titleSlug: String!) {
 }
 `
 
-// Client is the internal API contract described in docs/architecture.md.
+// Client is the public client contract.
 type Client interface {
 	FetchQuestion(ctx context.Context, titleSlug string) (Question, error)
 	Submit(ctx context.Context, req SubmitRequest) (SubmissionID, error)
@@ -78,14 +76,13 @@ type SubmitRequest struct {
 type SubmissionID int64
 
 // PollOptions describes polling behavior (interval/backoff/timeout).
-// See docs/architecture.md "Concurrency / polling".
 type PollOptions struct {
 	InitialInterval time.Duration
 	MaxInterval     time.Duration
 	Timeout         time.Duration
 }
 
-// SubmissionResult is the summary vleet prints after polling completes.
+// SubmissionResult is the summary callers can print after polling completes.
 type SubmissionResult struct {
 	State  string
 	Status string
@@ -99,22 +96,19 @@ type SubmissionResult struct {
 }
 
 // HttpClient is a LeetCode client backed by net/http.
-//
-// Skeleton only: network behavior (GraphQL queries, submit, poll) is not implemented yet.
-// It exists to define the API surface and dependency wiring.
 type HttpClient struct {
 	BaseURL   string
 	UserAgent string
 
 	Http *http.Client
-	Auth config.LeetCodeAuth
+	Auth Auth
 }
 
 type HttpClientOptions struct {
 	BaseURL   string
 	UserAgent string
 	Http      *http.Client
-	Auth      config.LeetCodeAuth
+	Auth      Auth
 }
 
 func NewHttpClient(opts HttpClientOptions) *HttpClient {
@@ -173,8 +167,8 @@ func (c *HttpClient) FetchQuestion(ctx context.Context, titleSlug string) (Quest
 	if c.Auth.Session != "" {
 		req.AddCookie(&http.Cookie{Name: kCookieLeetCodeSession, Value: c.Auth.Session})
 	}
-	if c.Auth.CSRFTOKEN != "" {
-		req.AddCookie(&http.Cookie{Name: kCookieCSRFTOKEN, Value: c.Auth.CSRFTOKEN})
+	if c.Auth.CsrfToken != "" {
+		req.AddCookie(&http.Cookie{Name: kCookieCSRFTOKEN, Value: c.Auth.CsrfToken})
 	}
 
 	resp, err := c.Http.Do(req)
@@ -227,7 +221,6 @@ func (c *HttpClient) FetchQuestion(ctx context.Context, titleSlug string) (Quest
 
 	dec := json.NewDecoder(resp.Body)
 	if err := dec.Decode(&gqlResp); err != nil {
-		// If LeetCode returns HTML while claiming JSON, include a tiny snippet for diagnosis.
 		return Question{}, fmt.Errorf("decode leetcode graphql response: %w", err)
 	}
 	if len(gqlResp.Errors) > 0 {
@@ -311,14 +304,14 @@ func (c *HttpClient) Submit(ctx context.Context, req SubmitRequest) (SubmissionI
 	if c.UserAgent != "" {
 		httpReq.Header.Set(kHeaderUserAgent, c.UserAgent)
 	}
-	if c.Auth.CSRFTOKEN != "" {
-		httpReq.Header.Set(kHeaderXCSRFTOKEN, c.Auth.CSRFTOKEN)
+	if c.Auth.CsrfToken != "" {
+		httpReq.Header.Set(kHeaderXCSRFTOKEN, c.Auth.CsrfToken)
 	}
 
 	// Attach cookies. These are secrets; never log them.
 	httpReq.AddCookie(&http.Cookie{Name: kCookieLeetCodeSession, Value: c.Auth.Session})
-	if c.Auth.CSRFTOKEN != "" {
-		httpReq.AddCookie(&http.Cookie{Name: kCookieCSRFTOKEN, Value: c.Auth.CSRFTOKEN})
+	if c.Auth.CsrfToken != "" {
+		httpReq.AddCookie(&http.Cookie{Name: kCookieCSRFTOKEN, Value: c.Auth.CsrfToken})
 	}
 
 	resp, err := c.Http.Do(httpReq)
@@ -419,12 +412,12 @@ func (c *HttpClient) PollSubmission(ctx context.Context, submissionID Submission
 		if c.UserAgent != "" {
 			httpReq.Header.Set(kHeaderUserAgent, c.UserAgent)
 		}
-		if c.Auth.CSRFTOKEN != "" {
-			httpReq.Header.Set(kHeaderXCSRFTOKEN, c.Auth.CSRFTOKEN)
+		if c.Auth.CsrfToken != "" {
+			httpReq.Header.Set(kHeaderXCSRFTOKEN, c.Auth.CsrfToken)
 		}
 		httpReq.AddCookie(&http.Cookie{Name: kCookieLeetCodeSession, Value: c.Auth.Session})
-		if c.Auth.CSRFTOKEN != "" {
-			httpReq.AddCookie(&http.Cookie{Name: kCookieCSRFTOKEN, Value: c.Auth.CSRFTOKEN})
+		if c.Auth.CsrfToken != "" {
+			httpReq.AddCookie(&http.Cookie{Name: kCookieCSRFTOKEN, Value: c.Auth.CsrfToken})
 		}
 
 		resp, err := c.Http.Do(httpReq)
@@ -543,3 +536,4 @@ func extractInt64(m map[string]any, key string) (int64, bool) {
 		return 0, false
 	}
 }
+

@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"vleet/internal/leetcode"
+	"github.com/therootusr/go-leetcode"
 )
 
 const (
